@@ -14,8 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      expense_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          user_id: string
+          wedding_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          user_id: string
+          wedding_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          user_id?: string
+          wedding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_wedding_id_fkey"
+            columns: ["wedding_id"]
+            isOneToOne: false
+            referencedRelation: "weddings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
+          actual_cost: number
           category: string
           concept: string
           created_at: string
@@ -27,6 +63,7 @@ export type Database = {
           wedding_id: string
         }
         Insert: {
+          actual_cost?: number
           category?: string
           concept: string
           created_at?: string
@@ -38,6 +75,7 @@ export type Database = {
           wedding_id: string
         }
         Update: {
+          actual_cost?: number
           category?: string
           concept?: string
           created_at?: string
