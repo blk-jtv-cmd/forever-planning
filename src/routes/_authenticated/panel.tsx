@@ -368,7 +368,10 @@ function Checklist({
     const { error } = await supabase
       .from("tasks")
       .insert({ title, category, wedding_id: wedding.id, user_id: userId });
-    if (error) return toast.error("No se ha podido guardar");
+    if (error) {
+      toast.error("No se ha podido guardar");
+      return;
+    }
     setTitle("");
     await reload();
   }
@@ -460,7 +463,10 @@ function Presupuesto({
       wedding_id: wedding.id,
       user_id: userId,
     });
-    if (error) return toast.error("No se ha podido guardar");
+    if (error) {
+      toast.error("No se ha podido guardar");
+      return;
+    }
     setForm({ concept: "", category: "General", planned: "", paid: "" });
     await reload();
   }
@@ -576,7 +582,10 @@ function Invitados({
       wedding_id: wedding.id,
       user_id: userId,
     });
-    if (error) return toast.error("No se ha podido guardar");
+    if (error) {
+      toast.error("No se ha podido guardar");
+      return;
+    }
     setForm({ name: "", guest_group: "Familia", companions: "0" });
     await reload();
   }
@@ -681,7 +690,10 @@ function Proveedores({
       wedding_id: wedding.id,
       user_id: userId,
     });
-    if (error) return toast.error("No se ha podido guardar");
+    if (error) {
+      toast.error("No se ha podido guardar");
+      return;
+    }
     setForm({ name: "", service: "Catering", contact: "", price: "" });
     await reload();
   }
@@ -789,7 +801,10 @@ function Cronograma({
       wedding_id: wedding.id,
       user_id: userId,
     });
-    if (error) return toast.error("No se ha podido guardar");
+    if (error) {
+      toast.error("No se ha podido guardar");
+      return;
+    }
     setForm({ time_label: "12:00", title: "", owner: "" });
     await reload();
   }
@@ -878,7 +893,10 @@ function Ajustes({
     };
     const { error } = await supabase.from("weddings").update(payload).eq("id", wedding.id);
     setSaving(false);
-    if (error) return toast.error("No se ha podido guardar");
+    if (error) {
+      toast.error("No se ha podido guardar");
+      return;
+    }
     setWedding({ ...wedding, ...payload });
     toast.success("Guardado");
   }
