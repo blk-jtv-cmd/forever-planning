@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import bridePortrait from "@/assets/bride-portrait.jpg";
 
 export const Route = createFileRoute("/")({
@@ -94,12 +94,12 @@ function Index() {
               Historias
             </a>
           </nav>
-          <a
-            href="#precio"
+          <Link
+            to="/auth"
             className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-clay"
           >
             Empezar
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -129,12 +129,12 @@ function Index() {
               className="mt-8 flex flex-wrap items-center gap-4"
               style={{ animation: "rise 700ms var(--ease-soft) both", animationDelay: "220ms" }}
             >
-              <a
-                href="#precio"
+              <Link
+                to="/auth"
                 className="inline-flex items-center gap-2 rounded-full bg-clay px-6 py-3 font-medium text-background transition-colors hover:bg-foreground"
               >
                 Empezar mi plan · 27€
-              </a>
+              </Link>
               <a
                 href="#metodo"
                 className="text-sm font-medium text-foreground underline decoration-clay/40 underline-offset-4 transition-colors hover:decoration-clay"
@@ -297,12 +297,12 @@ function Index() {
               <div className="mt-2 text-sm text-background/70">
                 Un solo pago. Sin cuotas, sin letra pequeña.
               </div>
-              <a
-                href="#precio"
+              <Link
+                to="/auth"
                 className="mt-8 inline-flex items-center gap-2 rounded-full bg-clay px-6 py-3.5 font-medium text-background transition-colors hover:bg-background hover:text-foreground"
               >
                 Crear mi plan ahora
-              </a>
+              </Link>
               <div className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-background/50">
                 Cancela cuando quieras
               </div>
@@ -331,12 +331,12 @@ function Index() {
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             Un plan, una boda, 27€
           </span>
-          <a
-            href="#precio"
+          <Link
+            to="/auth"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             Empezar
-          </a>
+          </Link>
         </div>
       </footer>
     </div>
