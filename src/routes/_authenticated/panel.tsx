@@ -115,22 +115,25 @@ function PanelPage() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async (weddingId: string) => {
-    const [t, e, g, v, tl] = await Promise.all([
+    const [t, e, g, v, tl, c] = await Promise.all([
       supabase.from("tasks").select("id,title,category,due_date,done").eq("wedding_id", weddingId).order("created_at"),
-      supabase.from("expenses").select("id,concept,category,planned,paid").eq("wedding_id", weddingId).order("created_at"),
+      supabase.from("expenses").select("id,concept,category,planned,actual_cost,paid").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("guests").select("id,name,guest_group,rsvp,table_number,companions").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("vendors").select("id,name,service,contact,price,status").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("timeline_items").select("id,time_label,title,owner").eq("wedding_id", weddingId).order("time_label"),
+      supabase.from("expense_categories").select("id,name,sort_order").eq("wedding_id", weddingId).order("sort_order"),
     ]);
     setTasks((t.data as Task[]) ?? []);
     setExpenses((e.data as Expense[]) ?? []);
     setGuests((g.data as Guest[]) ?? []);
     setVendors((v.data as Vendor[]) ?? []);
     setTimeline((tl.data as TimelineItem[]) ?? []);
+    setCategories((c.data as BudgetCategory[]) ?? []);
   }, []);
 
   useEffect(() => {
