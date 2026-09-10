@@ -205,7 +205,10 @@ export function Presupuesto({
     await reload();
   }
 
-  async function updateRow(id: string, patch: Record<string, number | string>) {
+  async function updateRow(
+    id: string,
+    patch: { planned?: number; actual_cost?: number; paid?: number; category?: string },
+  ) {
     const { error } = await supabase.from("expenses").update(patch).eq("id", id);
     if (error) {
       toast.error("No se ha podido guardar");
