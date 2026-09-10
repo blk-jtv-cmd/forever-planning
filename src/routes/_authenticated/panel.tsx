@@ -282,7 +282,26 @@ function PanelPage() {
           />
         )}
         {tab === "checklist" && <Checklist tasks={tasks} setTasks={setTasks} {...ctx} />}
-        {tab === "presupuesto" && <Presupuesto expenses={expenses} budget={budget} {...ctx} />}
+        {tab === "presupuesto" && (
+          <Presupuesto
+            expenses={expenses}
+            categories={categories}
+            wedding={wedding}
+            userId={userId}
+            reload={ctx.reload}
+            onBudgetChange={async (n) => {
+              const { error } = await supabase
+                .from("weddings")
+                .update({ total_budget: n })
+                .eq("id", wedding.id);
+              if (error) {
+                toast.error("No se ha podido guardar");
+                return;
+              }
+              setWedding({ ...wedding, total_budget: n });
+            }}
+          />
+        )}
         {tab === "invitados" && <Invitados guests={guests} {...ctx} />}
         {tab === "proveedores" && <Proveedores vendors={vendors} {...ctx} />}
         {tab === "cronograma" && <Cronograma items={timeline} {...ctx} />}
