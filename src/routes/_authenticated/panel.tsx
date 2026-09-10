@@ -52,6 +52,7 @@ type Expense = {
   concept: string;
   category: string;
   planned: number;
+  actual_cost: number;
   paid: number;
 };
 type Guest = {
