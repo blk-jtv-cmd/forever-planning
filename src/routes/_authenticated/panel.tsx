@@ -2,6 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  Presupuesto,
+  DEFAULT_EXPENSE_CATEGORIES,
+  type BudgetCategory,
+} from "@/components/panel/presupuesto";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({
@@ -47,6 +52,7 @@ type Expense = {
   concept: string;
   category: string;
   planned: number;
+  actual_cost: number;
   paid: number;
 };
 type Guest = {
@@ -109,22 +115,25 @@ function PanelPage() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async (weddingId: string) => {
-    const [t, e, g, v, tl] = await Promise.all([
+    const [t, e, g, v, tl, c] = await Promise.all([
       supabase.from("tasks").select("id,title,category,due_date,done").eq("wedding_id", weddingId).order("created_at"),
-      supabase.from("expenses").select("id,concept,category,planned,paid").eq("wedding_id", weddingId).order("created_at"),
+      supabase.from("expenses").select("id,concept,category,planned,actual_cost,paid").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("guests").select("id,name,guest_group,rsvp,table_number,companions").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("vendors").select("id,name,service,contact,price,status").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("timeline_items").select("id,time_label,title,owner").eq("wedding_id", weddingId).order("time_label"),
+      supabase.from("expense_categories").select("id,name,sort_order").eq("wedding_id", weddingId).order("sort_order"),
     ]);
     setTasks((t.data as Task[]) ?? []);
     setExpenses((e.data as Expense[]) ?? []);
     setGuests((g.data as Guest[]) ?? []);
     setVendors((v.data as Vendor[]) ?? []);
     setTimeline((tl.data as TimelineItem[]) ?? []);
+    setCategories((c.data as BudgetCategory[]) ?? []);
   }, []);
 
   useEffect(() => {
@@ -158,6 +167,22 @@ function PanelPage() {
         );
       }
       setWedding(current);
+
+      const { count } = await supabase
+        .from("expense_categories")
+        .select("id", { count: "exact", head: true })
+        .eq("wedding_id", current.id);
+      if (!count) {
+        await supabase.from("expense_categories").insert(
+          DEFAULT_EXPENSE_CATEGORIES.map((name, i) => ({
+            wedding_id: current!.id,
+            user_id: uid,
+            name,
+            sort_order: i,
+          })),
+        );
+      }
+
       await loadAll(current.id);
       setLoading(false);
     })();
@@ -165,8 +190,9 @@ function PanelPage() {
 
   const budget = useMemo(() => {
     const planned = expenses.reduce((s, e) => s + Number(e.planned), 0);
+    const actual = expenses.reduce((s, e) => s + Number(e.actual_cost), 0);
     const paid = expenses.reduce((s, e) => s + Number(e.paid), 0);
-    return { planned, paid };
+    return { planned, actual, paid };
   }, [expenses]);
 
   const confirmed = useMemo(
@@ -256,7 +282,26 @@ function PanelPage() {
           />
         )}
         {tab === "checklist" && <Checklist tasks={tasks} setTasks={setTasks} {...ctx} />}
-        {tab === "presupuesto" && <Presupuesto expenses={expenses} budget={budget} {...ctx} />}
+        {tab === "presupuesto" && (
+          <Presupuesto
+            expenses={expenses}
+            categories={categories}
+            wedding={wedding}
+            userId={userId}
+            reload={ctx.reload}
+            onBudgetChange={async (n) => {
+              const { error } = await supabase
+                .from("weddings")
+                .update({ total_budget: n })
+                .eq("id", wedding.id);
+              if (error) {
+                toast.error("No se ha podido guardar");
+                return;
+              }
+              setWedding({ ...wedding, total_budget: n });
+            }}
+          />
+        )}
         {tab === "invitados" && <Invitados guests={guests} {...ctx} />}
         {tab === "proveedores" && <Proveedores vendors={vendors} {...ctx} />}
         {tab === "cronograma" && <Cronograma items={timeline} {...ctx} />}
@@ -294,7 +339,7 @@ function Resumen({
 }: {
   wedding: Wedding;
   tasks: Task[];
-  budget: { planned: number; paid: number };
+  budget: { planned: number; actual: number; paid: number };
   confirmed: number;
   guests: number;
   vendors: number;
@@ -311,8 +356,8 @@ function Resumen({
         />
         <Stat
           label="Presupuesto"
-          value={euro(budget.paid)}
-          hint={`Previsto ${euro(budget.planned)} · Tope ${euro(Number(wedding.total_budget))}`}
+          value={euro(Number(wedding.total_budget) - budget.planned)}
+          hint={`Disponible ${euro(Number(wedding.total_budget))} · Estimado ${euro(budget.planned)}`}
         />
         <Stat label="Invitados confirmados" value={`${confirmed}`} hint={`${guests} en la lista`} />
         <Stat label="Proveedores" value={`${vendors}`} hint="Fichas guardadas" />
@@ -440,126 +485,6 @@ function Checklist({
             </ul>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function Presupuesto({
-  expenses,
-  budget,
-  wedding,
-  userId,
-  reload,
-}: {
-  expenses: Expense[];
-  budget: { planned: number; paid: number };
-  wedding: Wedding;
-  userId: string;
-  reload: () => Promise<void>;
-}) {
-  const [form, setForm] = useState({ concept: "", category: "General", planned: "", paid: "" });
-
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.concept.trim()) return;
-    const { error } = await supabase.from("expenses").insert({
-      concept: form.concept,
-      category: form.category,
-      planned: Number(form.planned) || 0,
-      paid: Number(form.paid) || 0,
-      wedding_id: wedding.id,
-      user_id: userId,
-    });
-    if (error) {
-      toast.error("No se ha podido guardar");
-      return;
-    }
-    setForm({ concept: "", category: "General", planned: "", paid: "" });
-    await reload();
-  }
-
-  return (
-    <div>
-      <SectionHeader title="Presupuesto" subtitle="Lo previsto frente a lo ya pagado." />
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
-        <Stat label="Tope fijado" value={euro(Number(wedding.total_budget))} />
-        <Stat label="Previsto" value={euro(budget.planned)} />
-        <Stat label="Pagado" value={euro(budget.paid)} />
-      </div>
-
-      <form onSubmit={add} className="mb-8 flex flex-wrap gap-3">
-        <input
-          value={form.concept}
-          onChange={(e) => setForm({ ...form, concept: e.target.value })}
-          placeholder="Concepto"
-          className={`${inputClass} flex-1 min-w-[180px]`}
-        />
-        <input
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}
-          placeholder="Categoría"
-          className={inputClass}
-        />
-        <input
-          value={form.planned}
-          onChange={(e) => setForm({ ...form, planned: e.target.value })}
-          placeholder="Previsto €"
-          inputMode="decimal"
-          className={`${inputClass} w-32`}
-        />
-        <input
-          value={form.paid}
-          onChange={(e) => setForm({ ...form, paid: e.target.value })}
-          placeholder="Pagado €"
-          inputMode="decimal"
-          className={`${inputClass} w-32`}
-        />
-        <button className="rounded-full bg-clay px-5 py-2 text-sm font-medium text-background hover:bg-foreground">
-          Añadir
-        </button>
-      </form>
-
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/5">
-        <table className="w-full text-sm">
-          <thead className="bg-panel text-left font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Concepto</th>
-              <th className="px-4 py-3">Categoría</th>
-              <th className="px-4 py-3 text-right">Previsto</th>
-              <th className="px-4 py-3 text-right">Pagado</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((x) => (
-              <tr key={x.id} className="border-t border-line">
-                <td className="px-4 py-3">{x.concept}</td>
-                <td className="px-4 py-3 text-muted-foreground">{x.category}</td>
-                <td className="px-4 py-3 text-right">{euro(Number(x.planned))}</td>
-                <td className="px-4 py-3 text-right">{euro(Number(x.paid))}</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={async () => {
-                      await supabase.from("expenses").delete().eq("id", x.id);
-                      await reload();
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Borrar
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {expenses.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  Aún no hay gastos apuntados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
       </div>
     </div>
   );
