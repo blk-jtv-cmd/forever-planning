@@ -356,8 +356,8 @@ function Resumen({
         />
         <Stat
           label="Presupuesto"
-          value={euro(budget.paid)}
-          hint={`Previsto ${euro(budget.planned)} · Tope ${euro(Number(wedding.total_budget))}`}
+          value={euro(Number(wedding.total_budget) - budget.planned)}
+          hint={`Disponible ${euro(Number(wedding.total_budget))} · Estimado ${euro(budget.planned)}`}
         />
         <Stat label="Invitados confirmados" value={`${confirmed}`} hint={`${guests} en la lista`} />
         <Stat label="Proveedores" value={`${vendors}`} hint="Fichas guardadas" />
