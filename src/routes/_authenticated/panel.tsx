@@ -339,7 +339,7 @@ function Resumen({
 }: {
   wedding: Wedding;
   tasks: Task[];
-  budget: { planned: number; paid: number };
+  budget: { planned: number; actual: number; paid: number };
   confirmed: number;
   guests: number;
   vendors: number;
