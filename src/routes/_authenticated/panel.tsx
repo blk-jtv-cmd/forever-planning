@@ -190,8 +190,9 @@ function PanelPage() {
 
   const budget = useMemo(() => {
     const planned = expenses.reduce((s, e) => s + Number(e.planned), 0);
+    const actual = expenses.reduce((s, e) => s + Number(e.actual_cost), 0);
     const paid = expenses.reduce((s, e) => s + Number(e.paid), 0);
-    return { planned, paid };
+    return { planned, actual, paid };
   }, [expenses]);
 
   const confirmed = useMemo(
