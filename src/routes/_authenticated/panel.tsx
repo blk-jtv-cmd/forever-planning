@@ -2,6 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  Presupuesto,
+  DEFAULT_EXPENSE_CATEGORIES,
+  type BudgetCategory,
+} from "@/components/panel/presupuesto";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({
