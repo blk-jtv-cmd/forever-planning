@@ -167,6 +167,22 @@ function PanelPage() {
         );
       }
       setWedding(current);
+
+      const { count } = await supabase
+        .from("expense_categories")
+        .select("id", { count: "exact", head: true })
+        .eq("wedding_id", current.id);
+      if (!count) {
+        await supabase.from("expense_categories").insert(
+          DEFAULT_EXPENSE_CATEGORIES.map((name, i) => ({
+            wedding_id: current!.id,
+            user_id: uid,
+            name,
+            sort_order: i,
+          })),
+        );
+      }
+
       await loadAll(current.id);
       setLoading(false);
     })();
