@@ -106,6 +106,33 @@ function euro(n: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 }
 
+function weddingDay(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function daysUntilWedding(date: string | null) {
+  if (!date) return null;
+  const wedding = weddingDay(date);
+  if (!wedding) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  wedding.setHours(0, 0, 0, 0);
+  return Math.round((wedding.getTime() - today.getTime()) / 86400000);
+}
+
+function weddingDateLabel(date: string | null) {
+  if (!date) return null;
+  const wedding = weddingDay(date);
+  if (!wedding) return null;
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(wedding);
+}
+
 function PanelPage() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
@@ -201,9 +228,7 @@ function PanelPage() {
   );
 
   const daysLeft = useMemo(() => {
-    if (!wedding?.wedding_date) return null;
-    const diff = new Date(wedding.wedding_date).getTime() - Date.now();
-    return Math.ceil(diff / 86400000);
+    return daysUntilWedding(wedding?.wedding_date ?? null);
   }, [wedding?.wedding_date]);
 
   async function signOut() {
@@ -346,8 +371,50 @@ function Resumen({
 }) {
   const doneCount = tasks.filter((t) => t.done).length;
   const pending = tasks.filter((t) => !t.done).slice(0, 5);
+  const firstName = wedding.partner_one.trim() || "Novia";
+  const secondName = wedding.partner_two.trim() || "Novio";
+  const daysLeft = daysUntilWedding(wedding.wedding_date);
+  const dateLabel = weddingDateLabel(wedding.wedding_date);
+
+  let countdownLabel = "Indicad la fecha en Ajustes";
+  let countdownDetail = "Y aquí comenzará vuestra cuenta atrás";
+  if (daysLeft === 0) {
+    countdownLabel = "¡Hoy es vuestro gran día!";
+    countdownDetail = dateLabel ?? "Disfrutad cada momento";
+  } else if (daysLeft === 1) {
+    countdownLabel = "Falta 1 día";
+    countdownDetail = dateLabel ?? "Ya casi está aquí";
+  } else if (daysLeft !== null && daysLeft > 1) {
+    countdownLabel = `Faltan ${daysLeft} días`;
+    countdownDetail = dateLabel ?? "Vuestra cuenta atrás";
+  } else if (daysLeft === -1) {
+    countdownLabel = "Hace 1 día de vuestra boda";
+    countdownDetail = dateLabel ?? "Un recuerdo para siempre";
+  } else if (daysLeft !== null && daysLeft < -1) {
+    countdownLabel = `Hace ${Math.abs(daysLeft)} días de vuestra boda`;
+    countdownDetail = dateLabel ?? "Un recuerdo para siempre";
+  }
+
   return (
     <div className="space-y-8">
+      <section className="grid gap-8 border-y border-line py-8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:py-10">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-clay">Vuestro espacio</p>
+          <h1 className="mt-3 max-w-3xl font-display text-4xl font-semibold leading-none sm:text-5xl">
+            Bienvenidos, {firstName} y {secondName}
+          </h1>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+            Todo lo importante de vuestra boda, reunido para que disfrutéis también del camino.
+          </p>
+        </div>
+        <div className="border-l-2 border-clay pl-5 sm:min-w-64">
+          <p className="font-display text-3xl font-semibold leading-tight">{countdownLabel}</p>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            {countdownDetail}
+          </p>
+        </div>
+      </section>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Tareas hechas"
