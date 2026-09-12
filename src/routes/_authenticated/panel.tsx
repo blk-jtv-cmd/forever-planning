@@ -452,7 +452,12 @@ function Resumen({
           <ul className="mt-4 space-y-2">
             {pending.map((t) => (
               <li key={t.id} className="flex items-center gap-3 rounded-lg bg-background px-3 py-2.5 text-sm">
-                <span className="size-3 rounded-full border border-clay/60" />
+                <button
+                  type="button"
+                  onClick={() => void completar(t)}
+                  aria-label={`Marcar "${t.title}" como hecha`}
+                  className="size-4 shrink-0 rounded-full border border-clay/60 transition hover:border-clay hover:bg-clay/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay"
+                />
                 {t.title}
                 <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                   {t.category}
