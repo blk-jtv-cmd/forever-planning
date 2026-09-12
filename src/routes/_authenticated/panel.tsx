@@ -300,6 +300,7 @@ function PanelPage() {
           <Resumen
             wedding={wedding}
             tasks={tasks}
+            setTasks={setTasks}
             budget={budget}
             confirmed={confirmed}
             guests={guests.length}
@@ -357,6 +358,7 @@ function Stat({
 function Resumen({
   wedding,
   tasks,
+  setTasks,
   budget,
   confirmed,
   guests,
@@ -364,6 +366,7 @@ function Resumen({
 }: {
   wedding: Wedding;
   tasks: Task[];
+  setTasks: (t: Task[]) => void;
   budget: { planned: number; actual: number; paid: number };
   confirmed: number;
   guests: number;
@@ -371,6 +374,17 @@ function Resumen({
 }) {
   const doneCount = tasks.filter((t) => t.done).length;
   const pending = tasks.filter((t) => !t.done).slice(0, 5);
+
+  async function completar(task: Task) {
+    setTasks(tasks.map((t) => (t.id === task.id ? { ...t, done: true } : t)));
+    const { error } = await supabase.from("tasks").update({ done: true }).eq("id", task.id);
+    if (error) {
+      setTasks(tasks.map((t) => (t.id === task.id ? { ...t, done: false } : t)));
+      toast.error("No se ha podido guardar");
+      return;
+    }
+    toast.success("Tarea completada");
+  }
   const firstName = wedding.partner_one.trim() || "Novia";
   const secondName = wedding.partner_two.trim() || "Novio";
   const daysLeft = daysUntilWedding(wedding.wedding_date);
@@ -438,7 +452,12 @@ function Resumen({
           <ul className="mt-4 space-y-2">
             {pending.map((t) => (
               <li key={t.id} className="flex items-center gap-3 rounded-lg bg-background px-3 py-2.5 text-sm">
-                <span className="size-3 rounded-full border border-clay/60" />
+                <button
+                  type="button"
+                  onClick={() => void completar(t)}
+                  aria-label={`Marcar "${t.title}" como hecha`}
+                  className="size-4 shrink-0 rounded-full border border-clay/60 transition hover:border-clay hover:bg-clay/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay"
+                />
                 {t.title}
                 <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                   {t.category}
