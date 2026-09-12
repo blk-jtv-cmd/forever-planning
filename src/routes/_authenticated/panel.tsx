@@ -358,6 +358,7 @@ function Stat({
 function Resumen({
   wedding,
   tasks,
+  setTasks,
   budget,
   confirmed,
   guests,
@@ -365,6 +366,7 @@ function Resumen({
 }: {
   wedding: Wedding;
   tasks: Task[];
+  setTasks: (t: Task[]) => void;
   budget: { planned: number; actual: number; paid: number };
   confirmed: number;
   guests: number;
@@ -372,6 +374,17 @@ function Resumen({
 }) {
   const doneCount = tasks.filter((t) => t.done).length;
   const pending = tasks.filter((t) => !t.done).slice(0, 5);
+
+  async function completar(task: Task) {
+    setTasks(tasks.map((t) => (t.id === task.id ? { ...t, done: true } : t)));
+    const { error } = await supabase.from("tasks").update({ done: true }).eq("id", task.id);
+    if (error) {
+      setTasks(tasks.map((t) => (t.id === task.id ? { ...t, done: false } : t)));
+      toast.error("No se ha podido guardar");
+      return;
+    }
+    toast.success("Tarea completada");
+  }
   const firstName = wedding.partner_one.trim() || "Novia";
   const secondName = wedding.partner_two.trim() || "Novio";
   const daysLeft = daysUntilWedding(wedding.wedding_date);
