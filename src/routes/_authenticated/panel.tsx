@@ -300,6 +300,7 @@ function PanelPage() {
           <Resumen
             wedding={wedding}
             tasks={tasks}
+            setTasks={setTasks}
             budget={budget}
             confirmed={confirmed}
             guests={guests.length}
