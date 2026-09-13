@@ -151,7 +151,7 @@ function PanelPage() {
     const [t, e, g, v, tl, c] = await Promise.all([
       supabase.from("tasks").select("id,title,category,due_date,done").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("expenses").select("id,concept,category,planned,actual_cost,paid").eq("wedding_id", weddingId).order("created_at"),
-      supabase.from("guests").select("id,name,guest_group,rsvp,table_number,companions").eq("wedding_id", weddingId).order("created_at"),
+      supabase.from("guests").select("id,name,guest_group,invited_by,rsvp,table_number,companions").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("vendors").select("id,name,service,contact,price,status").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("timeline_items").select("id,time_label,title,owner").eq("wedding_id", weddingId).order("time_label"),
       supabase.from("expense_categories").select("id,name,sort_order").eq("wedding_id", weddingId).order("sort_order"),
