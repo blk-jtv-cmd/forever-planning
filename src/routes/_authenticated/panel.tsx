@@ -656,6 +656,12 @@ function Checklist({
 
 
 const RSVP = ["pendiente", "confirmado", "rechazado"];
+const GUEST_GROUPS = ["Familia", "Acompañante", "Trabajo", "Otros"];
+const RSVP_LABEL: Record<string, string> = {
+  pendiente: "Pendiente",
+  confirmado: "Confirmado",
+  rechazado: "Rechazado",
+};
 
 function Invitados({
   guests,
@@ -668,7 +674,13 @@ function Invitados({
   userId: string;
   reload: () => Promise<void>;
 }) {
-  const [form, setForm] = useState({ name: "", guest_group: "Familia", companions: "0" });
+  const hosts = [wedding.partner_one?.trim() || "Novia", wedding.partner_two?.trim() || "Novio"];
+  const [form, setForm] = useState({
+    name: "",
+    invited_by: hosts[0]!,
+    guest_group: "Familia",
+    companions: "0",
+  });
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -676,6 +688,7 @@ function Invitados({
     const { error } = await supabase.from("guests").insert({
       name: form.name,
       guest_group: form.guest_group,
+      invited_by: form.invited_by,
       companions: Number(form.companions) || 0,
       wedding_id: wedding.id,
       user_id: userId,
@@ -684,15 +697,31 @@ function Invitados({
       toast.error("No se ha podido guardar");
       return;
     }
-    setForm({ name: "", guest_group: "Familia", companions: "0" });
+    setForm({ name: "", invited_by: hosts[0]!, guest_group: "Familia", companions: "0" });
     await reload();
   }
+
+  const groupData = Array.from(
+    guests.reduce((map, g) => {
+      const key = g.guest_group || "Otros";
+      map.set(key, (map.get(key) ?? 0) + 1 + (g.companions || 0));
+      return map;
+    }, new Map<string, number>()),
+    ([name, value]) => ({ name, value }),
+  ).sort((a, b) => b.value - a.value);
+
+  const rsvpData = RSVP.map((r) => ({
+    name: RSVP_LABEL[r]!,
+    value: guests.filter((g) => g.rsvp === r).length,
+  }));
+  const rsvpColors = ["var(--color-clay-soft)", "var(--color-clay)", "var(--color-muted)"];
+  const totalSeats = guests.reduce((s, g) => s + 1 + (g.companions || 0), 0);
 
   return (
     <div>
       <SectionHeader
         title="Invitados"
-        subtitle={`${guests.length} en la lista · objetivo ${wedding.guest_target}`}
+        subtitle={`${guests.length} en la lista · ${totalSeats} plazas · objetivo ${wedding.guest_target}`}
       />
       <form onSubmit={add} className="mb-8 flex flex-wrap gap-3">
         <input
@@ -701,12 +730,31 @@ function Invitados({
           placeholder="Nombre"
           className={`${inputClass} flex-1 min-w-[180px]`}
         />
-        <input
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          Invitado de
+          <select
+            value={form.invited_by}
+            onChange={(e) => setForm({ ...form, invited_by: e.target.value })}
+            className={inputClass}
+          >
+            {hosts.map((h) => (
+              <option key={h} value={h}>
+                {h}
+              </option>
+            ))}
+          </select>
+        </label>
+        <select
           value={form.guest_group}
           onChange={(e) => setForm({ ...form, guest_group: e.target.value })}
-          placeholder="Grupo"
           className={inputClass}
-        />
+        >
+          {GUEST_GROUPS.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
         <input
           value={form.companions}
           onChange={(e) => setForm({ ...form, companions: e.target.value })}
@@ -725,6 +773,7 @@ function Invitados({
             <span className="font-medium">{g.name}</span>
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
               {g.guest_group}
+              {g.invited_by && ` · de ${g.invited_by}`}
               {g.companions > 0 && ` · +${g.companions}`}
             </span>
             <select
@@ -758,6 +807,93 @@ function Invitados({
           </li>
         )}
       </ul>
+
+      {guests.length > 0 && (
+        <section className="mt-10 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl bg-panel p-6 ring-1 ring-foreground/5">
+            <h2 className="font-display text-xl font-semibold">Invitados por grupo</h2>
+            <div className="mt-4" style={{ height: Math.max(220, groupData.length * 52) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={groupData} layout="vertical" margin={{ left: 10, right: 16 }}>
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tick={{ fontSize: 11 }}
+                    stroke="var(--color-muted-foreground)"
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={110}
+                    tick={{ fontSize: 11 }}
+                    stroke="var(--color-muted-foreground)"
+                  />
+                  <Tooltip
+                    cursor={{ fill: "var(--color-clay-soft)" }}
+                    contentStyle={{
+                      background: "var(--color-background)",
+                      border: "1px solid var(--color-line)",
+                      borderRadius: 12,
+                      fontSize: 12,
+                    }}
+                  />
+                  <Bar dataKey="value" name="Plazas" fill="var(--color-clay)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-panel p-6 ring-1 ring-foreground/5">
+            <h2 className="font-display text-xl font-semibold">Estado de confirmación</h2>
+            <div className="relative mt-4 h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={rsvpData}
+                    dataKey="value"
+                    innerRadius={70}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    stroke="none"
+                  >
+                    {rsvpData.map((d, i) => (
+                      <Cell key={d.name} fill={rsvpColors[i]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--color-panel)",
+                      border: "1px solid var(--color-line)",
+                      borderRadius: 12,
+                      fontSize: 12,
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Invitados
+                </span>
+                <span className="font-display text-2xl font-semibold">{guests.length}</span>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-sm">
+              {rsvpData.map((d, i) => (
+                <div key={d.name} className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="size-3 rounded-full ring-1 ring-clay/30"
+                      style={{ background: rsvpColors[i] }}
+                    />
+                    {d.name}
+                  </span>
+                  <span>{d.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
