@@ -59,6 +59,7 @@ type Guest = {
   id: string;
   name: string;
   guest_group: string;
+  invited_by: string;
   rsvp: string;
   table_number: string | null;
   companions: number;
