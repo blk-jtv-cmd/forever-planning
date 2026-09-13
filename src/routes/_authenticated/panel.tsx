@@ -480,6 +480,22 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle: string })
   );
 }
 
+const TASK_CATEGORIES = [
+  "General",
+  "12 meses antes",
+  "10 meses antes",
+  "9 meses antes",
+  "8 meses antes",
+  "6 meses antes",
+  "4 meses antes",
+  "3 meses antes",
+  "2 meses antes",
+  "1 mes antes",
+  "1 semana antes",
+  "Día antes",
+  "Día B",
+];
+
 function Checklist({
   tasks,
   setTasks,
@@ -495,6 +511,7 @@ function Checklist({
 }) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("General");
+  const [filter, setFilter] = useState<"todas" | "pendientes" | "completadas">("todas");
 
   async function toggle(task: Task) {
     setTasks(tasks.map((t) => (t.id === task.id ? { ...t, done: !t.done } : t)));
@@ -520,34 +537,94 @@ function Checklist({
     await reload();
   }
 
-  const groups = tasks.reduce<Record<string, Task[]>>((acc, t) => {
+  const total = tasks.length;
+  const completed = tasks.filter((t) => t.done).length;
+  const percent = total ? Math.round((completed / total) * 100) : 0;
+
+  const visible = tasks.filter((t) =>
+    filter === "todas" ? true : filter === "pendientes" ? !t.done : t.done,
+  );
+
+  const categoryOptions = Array.from(
+    new Set([...TASK_CATEGORIES, ...tasks.map((t) => t.category)]),
+  );
+
+  const groups = visible.reduce<Record<string, Task[]>>((acc, t) => {
     (acc[t.category] ||= []).push(t);
     return acc;
   }, {});
 
+  const orderedGroups = Object.entries(groups).sort((a, b) => {
+    const ia = categoryOptions.indexOf(a[0]);
+    const ib = categoryOptions.indexOf(b[0]);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  });
+
+  const filters: { key: typeof filter; label: string; count: number }[] = [
+    { key: "todas", label: "Todas", count: total },
+    { key: "pendientes", label: "Pendientes", count: total - completed },
+    { key: "completadas", label: "Completadas", count: completed },
+  ];
+
   return (
     <div>
       <SectionHeader title="Checklist" subtitle="Todo lo que hay que hacer, mes a mes." />
-      <form onSubmit={add} className="mb-8 flex flex-wrap gap-3">
+
+      <div className="mb-8 rounded-2xl bg-panel px-5 py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-clay">Progreso</span>
+          <span className="text-sm text-muted-foreground">
+            {completed} de {total} tareas · <span className="font-medium text-foreground">{percent}%</span>
+          </span>
+        </div>
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-clay-soft">
+          <div
+            className="h-full rounded-full bg-clay transition-all duration-500"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      </div>
+
+      <form onSubmit={add} className="mb-6 flex flex-wrap gap-3">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Nueva tarea"
           className={`${inputClass} flex-1 min-w-[220px]`}
         />
-        <input
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          placeholder="Momento (ej. 6 meses antes)"
-          className={inputClass}
-        />
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass}>
+          {categoryOptions.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
         <button className="rounded-full bg-clay px-5 py-2 text-sm font-medium text-background hover:bg-foreground">
           Añadir
         </button>
       </form>
 
+      <div className="mb-8 flex flex-wrap gap-2">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`rounded-full px-4 py-1.5 text-xs transition-colors ${
+              filter === f.key
+                ? "bg-clay text-background"
+                : "bg-panel text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-8">
-        {Object.entries(groups).map(([group, items]) => (
+        {orderedGroups.length === 0 && (
+          <p className="text-sm text-muted-foreground">No hay tareas en esta vista.</p>
+        )}
+        {orderedGroups.map(([group, items]) => (
           <div key={group}>
             <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-clay">{group}</div>
             <ul className="space-y-2">
@@ -575,6 +652,7 @@ function Checklist({
     </div>
   );
 }
+
 
 const RSVP = ["pendiente", "confirmado", "rechazado"];
 
