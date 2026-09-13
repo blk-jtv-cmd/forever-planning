@@ -1,0 +1,1 @@
+ALTER TABLE public.guests ADD COLUMN IF NOT EXISTS invited_by text NOT NULL DEFAULT '';

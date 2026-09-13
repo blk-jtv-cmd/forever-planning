@@ -103,6 +103,7 @@ export type Database = {
           email: string | null
           guest_group: string
           id: string
+          invited_by: string
           name: string
           phone: string | null
           rsvp: string
@@ -116,6 +117,7 @@ export type Database = {
           email?: string | null
           guest_group?: string
           id?: string
+          invited_by?: string
           name: string
           phone?: string | null
           rsvp?: string
@@ -129,6 +131,7 @@ export type Database = {
           email?: string | null
           guest_group?: string
           id?: string
+          invited_by?: string
           name?: string
           phone?: string | null
           rsvp?: string
