@@ -7,6 +7,17 @@ import {
   DEFAULT_EXPENSE_CATEGORIES,
   type BudgetCategory,
 } from "@/components/panel/presupuesto";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({
