@@ -65,6 +65,7 @@ type Expense = {
   planned: number;
   actual_cost: number;
   paid: number;
+  notes: string;
 };
 type Guest = {
   id: string;
@@ -74,6 +75,7 @@ type Guest = {
   rsvp: string;
   table_number: string | null;
   companions: number;
+  notes: string;
 };
 type Vendor = {
   id: string;
@@ -82,6 +84,10 @@ type Vendor = {
   contact: string | null;
   price: number;
   status: string;
+  website: string;
+  deposit_paid: number;
+  contract_signed: boolean;
+  notes: string | null;
 };
 type TimelineItem = { id: string; time_label: string; title: string; owner: string | null };
 
@@ -161,9 +167,9 @@ function PanelPage() {
   const loadAll = useCallback(async (weddingId: string) => {
     const [t, e, g, v, tl, c] = await Promise.all([
       supabase.from("tasks").select("id,title,category,due_date,done").eq("wedding_id", weddingId).order("created_at"),
-      supabase.from("expenses").select("id,concept,category,planned,actual_cost,paid").eq("wedding_id", weddingId).order("created_at"),
-      supabase.from("guests").select("id,name,guest_group,invited_by,rsvp,table_number,companions").eq("wedding_id", weddingId).order("created_at"),
-      supabase.from("vendors").select("id,name,service,contact,price,status").eq("wedding_id", weddingId).order("created_at"),
+      supabase.from("expenses").select("id,concept,category,planned,actual_cost,paid,notes").eq("wedding_id", weddingId).order("created_at"),
+      supabase.from("guests").select("id,name,guest_group,invited_by,rsvp,table_number,companions,notes").eq("wedding_id", weddingId).order("created_at"),
+      supabase.from("vendors").select("id,name,service,contact,price,status,website,deposit_paid,contract_signed,notes").eq("wedding_id", weddingId).order("created_at"),
       supabase.from("timeline_items").select("id,time_label,title,owner").eq("wedding_id", weddingId).order("time_label"),
       supabase.from("expense_categories").select("id,name,sort_order").eq("wedding_id", weddingId).order("sort_order"),
     ]);
@@ -341,7 +347,9 @@ function PanelPage() {
           />
         )}
         {tab === "invitados" && <Invitados guests={guests} {...ctx} />}
-        {tab === "proveedores" && <Proveedores vendors={vendors} {...ctx} />}
+        {tab === "proveedores" && (
+          <Proveedores vendors={vendors} categories={categories} {...ctx} />
+        )}
         {tab === "cronograma" && <Cronograma items={timeline} {...ctx} />}
         {tab === "ajustes" && <Ajustes wedding={wedding} setWedding={setWedding} />}
       </main>
@@ -667,7 +675,7 @@ function Checklist({
 
 
 const RSVP = ["pendiente", "confirmado", "rechazado"];
-const GUEST_GROUPS = ["Familia", "Acompañante", "Trabajo", "Otros"];
+const GUEST_GROUPS = ["Familia", "Amigos", "Acompañante", "Trabajo", "Otros"];
 const RSVP_LABEL: Record<string, string> = {
   pendiente: "Pendiente",
   confirmado: "Confirmado",
@@ -690,7 +698,7 @@ function Invitados({
     name: "",
     invited_by: hosts[0]!,
     guest_group: "Familia",
-    companions: "0",
+    notes: "",
   });
 
   async function add(e: React.FormEvent) {
@@ -700,7 +708,7 @@ function Invitados({
       name: form.name,
       guest_group: form.guest_group,
       invited_by: form.invited_by,
-      companions: Number(form.companions) || 0,
+      notes: form.notes.trim(),
       wedding_id: wedding.id,
       user_id: userId,
     });
@@ -708,7 +716,7 @@ function Invitados({
       toast.error("No se ha podido guardar");
       return;
     }
-    setForm({ name: "", invited_by: hosts[0]!, guest_group: "Familia", companions: "0" });
+    setForm({ name: "", invited_by: hosts[0]!, guest_group: "Familia", notes: "" });
     await reload();
   }
 
@@ -767,11 +775,10 @@ function Invitados({
           ))}
         </select>
         <input
-          value={form.companions}
-          onChange={(e) => setForm({ ...form, companions: e.target.value })}
-          placeholder="Acompañantes"
-          inputMode="numeric"
-          className={`${inputClass} w-36`}
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          placeholder="Notas (opcional)"
+          className={`${inputClass} min-w-[200px] flex-1`}
         />
         <button className="rounded-full bg-clay px-5 py-2 text-sm font-medium text-background hover:bg-foreground">
           Añadir
@@ -785,8 +792,18 @@ function Invitados({
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
               {g.guest_group}
               {g.invited_by && ` · de ${g.invited_by}`}
-              {g.companions > 0 && ` · +${g.companions}`}
             </span>
+            <input
+              defaultValue={g.notes ?? ""}
+              placeholder="Notas"
+              onBlur={async (e) => {
+                const next = e.target.value;
+                if (next === (g.notes ?? "")) return;
+                await supabase.from("guests").update({ notes: next }).eq("id", g.id);
+                await reload();
+              }}
+              className="w-48 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground/60 hover:border-line focus:border-clay focus:bg-background"
+            />
             <select
               value={g.rsvp}
               onChange={async (e) => {
