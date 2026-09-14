@@ -1035,7 +1035,15 @@ function Proveedores({
     await reload();
   }
 
-  async function update(id: string, patch: Record<string, unknown>) {
+  async function update(
+    id: string,
+    patch: {
+      status?: string;
+      deposit_paid?: number;
+      contract_signed?: boolean;
+      notes?: string;
+    },
+  ) {
     const { error } = await supabase.from("vendors").update(patch).eq("id", id);
     if (error) {
       toast.error("No se ha podido guardar");
