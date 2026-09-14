@@ -56,6 +56,7 @@ export type Database = {
           concept: string
           created_at: string
           id: string
+          notes: string
           paid: number
           planned: number
           user_id: string
@@ -68,6 +69,7 @@ export type Database = {
           concept: string
           created_at?: string
           id?: string
+          notes?: string
           paid?: number
           planned?: number
           user_id: string
@@ -80,6 +82,7 @@ export type Database = {
           concept?: string
           created_at?: string
           id?: string
+          notes?: string
           paid?: number
           planned?: number
           user_id?: string
@@ -105,6 +108,7 @@ export type Database = {
           id: string
           invited_by: string
           name: string
+          notes: string
           phone: string | null
           rsvp: string
           table_number: string | null
@@ -119,6 +123,7 @@ export type Database = {
           id?: string
           invited_by?: string
           name: string
+          notes?: string
           phone?: string | null
           rsvp?: string
           table_number?: string | null
@@ -133,6 +138,7 @@ export type Database = {
           id?: string
           invited_by?: string
           name?: string
+          notes?: string
           phone?: string | null
           rsvp?: string
           table_number?: string | null
@@ -252,7 +258,9 @@ export type Database = {
       vendors: {
         Row: {
           contact: string | null
+          contract_signed: boolean
           created_at: string
+          deposit_paid: number
           id: string
           name: string
           notes: string | null
@@ -260,11 +268,14 @@ export type Database = {
           service: string
           status: string
           user_id: string
+          website: string
           wedding_id: string
         }
         Insert: {
           contact?: string | null
+          contract_signed?: boolean
           created_at?: string
+          deposit_paid?: number
           id?: string
           name: string
           notes?: string | null
@@ -272,11 +283,14 @@ export type Database = {
           service?: string
           status?: string
           user_id: string
+          website?: string
           wedding_id: string
         }
         Update: {
           contact?: string | null
+          contract_signed?: boolean
           created_at?: string
+          deposit_paid?: number
           id?: string
           name?: string
           notes?: string | null
@@ -284,6 +298,7 @@ export type Database = {
           service?: string
           status?: string
           user_id?: string
+          website?: string
           wedding_id?: string
         }
         Relationships: [

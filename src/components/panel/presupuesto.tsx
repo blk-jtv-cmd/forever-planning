@@ -21,6 +21,7 @@ export type BudgetExpense = {
   planned: number;
   actual_cost: number;
   paid: number;
+  notes: string;
 };
 
 export type BudgetCategory = { id: string; name: string; sort_order: number };
@@ -88,6 +89,30 @@ function AmountCell({
         if (n !== Number(value)) await onSave(n);
       }}
       className="w-24 rounded-md border border-transparent bg-transparent px-2 py-1 text-right text-sm outline-none hover:border-line focus:border-clay focus:bg-background"
+    />
+  );
+}
+
+function NoteCell({
+  value,
+  onSave,
+}: {
+  value: string;
+  onSave: (v: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      value={draft ?? value ?? ""}
+      placeholder="Añadir nota"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={async () => {
+        if (draft === null) return;
+        const next = draft;
+        setDraft(null);
+        if (next !== (value ?? "")) await onSave(next);
+      }}
+      className="w-48 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground/60 hover:border-line focus:border-clay focus:bg-background"
     />
   );
 }
@@ -187,13 +212,14 @@ export function Presupuesto({
     await reload();
   }
 
-  async function addRow(category: string, concept: string) {
+  async function addRow(category: string, concept: string, notes: string) {
     if (!concept.trim()) return;
     const { error } = await supabase.from("expenses").insert({
       wedding_id: wedding.id,
       user_id: userId,
       concept: concept.trim(),
       category,
+      notes: notes.trim(),
       planned: 0,
       actual_cost: 0,
       paid: 0,
@@ -207,7 +233,13 @@ export function Presupuesto({
 
   async function updateRow(
     id: string,
-    patch: { planned?: number; actual_cost?: number; paid?: number; category?: string },
+    patch: {
+      planned?: number;
+      actual_cost?: number;
+      paid?: number;
+      category?: string;
+      notes?: string;
+    },
   ) {
     const { error } = await supabase.from("expenses").update(patch).eq("id", id);
     if (error) {
@@ -325,6 +357,7 @@ export function Presupuesto({
                         <th className="px-4 py-3 text-right">Pagado</th>
                         <th className="px-4 py-3 text-right">Pendiente</th>
                         <th className="px-4 py-3 text-right">% del total</th>
+                        <th className="px-4 py-3">Notas</th>
                         <th className="px-4 py-3" />
                       </tr>
                     </thead>
@@ -375,6 +408,12 @@ export function Presupuesto({
                             <td className="px-4 py-2 text-right font-mono text-xs text-muted-foreground">
                               {Math.round((Number(x.actual_cost) / shareBase) * 100)}%
                             </td>
+                            <td className="px-4 py-2">
+                              <NoteCell
+                                value={x.notes ?? ""}
+                                onSave={(v) => updateRow(x.id, { notes: v })}
+                              />
+                            </td>
                             <td className="px-4 py-2 text-right">
                               <button
                                 onClick={async () => {
@@ -403,20 +442,22 @@ export function Presupuesto({
                             {Math.round((cat.actual / shareBase) * 100)}%
                           </td>
                           <td />
+                          <td />
                         </tr>
                       )}
 
                       <tr className="border-t border-line">
-                        <td className="px-4 py-2" colSpan={8}>
+                        <td className="px-4 py-2" colSpan={9}>
                           {addingIn === cat.name ? (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
-                                const input = (e.currentTarget.elements.namedItem(
-                                  "concept",
-                                ) as HTMLInputElement);
-                                await addRow(cat.name, input.value);
+                                const form = e.currentTarget;
+                                const input = form.elements.namedItem("concept") as HTMLInputElement;
+                                const noteInput = form.elements.namedItem("notes") as HTMLInputElement;
+                                await addRow(cat.name, input.value, noteInput.value);
                                 input.value = "";
+                                noteInput.value = "";
                               }}
                               className="flex flex-wrap gap-3"
                             >
@@ -425,6 +466,11 @@ export function Presupuesto({
                                 autoFocus
                                 placeholder="Concepto"
                                 className={`${inputClass} min-w-[220px]`}
+                              />
+                              <input
+                                name="notes"
+                                placeholder="Notas (opcional)"
+                                className={`${inputClass} min-w-[240px]`}
                               />
                               <button className="rounded-full bg-clay px-4 py-2 text-xs font-medium text-background hover:bg-foreground">
                                 Añadir
