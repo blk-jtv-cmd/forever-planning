@@ -926,29 +926,94 @@ function Invitados({
   );
 }
 
-const VENDOR_STATUS = ["contactado", "presupuesto", "reservado", "pagado"];
+const VENDOR_STATUS = ["por contactar", "contactado", "presupuesto", "reservado", "pagado"];
+const VENDOR_STATUS_LABEL: Record<string, string> = {
+  "por contactar": "Por contactar",
+  contactado: "Contactado",
+  presupuesto: "Presupuesto",
+  reservado: "Reservado",
+  pagado: "Pagado",
+};
+const VENDOR_STATUS_COLORS: Record<string, string> = {
+  pagado: "var(--color-clay)",
+  reservado: "var(--color-clay-soft)",
+  presupuesto: "var(--color-muted)",
+  contactado: "var(--color-line)",
+  "por contactar": "var(--color-muted-foreground)",
+};
 
 function Proveedores({
   vendors,
+  categories,
   wedding,
   userId,
   reload,
 }: {
   vendors: Vendor[];
+  categories: BudgetCategory[];
   wedding: Wedding;
   userId: string;
   reload: () => Promise<void>;
 }) {
-  const [form, setForm] = useState({ name: "", service: "Catering", contact: "", price: "" });
+  const services = useMemo(() => {
+    const list = categories.length
+      ? categories.map((c) => c.name)
+      : [...DEFAULT_EXPENSE_CATEGORIES];
+    for (const v of vendors) if (v.service && !list.includes(v.service)) list.push(v.service);
+    return list;
+  }, [categories, vendors]);
+
+  const [form, setForm] = useState({
+    name: "",
+    service: "",
+    contact: "",
+    website: "",
+    price: "",
+    deposit_paid: "",
+    status: "por contactar",
+    contract_signed: false,
+    notes: "",
+  });
+  const [newService, setNewService] = useState("");
+
+  const service = form.service || services[0] || "Otros";
+
+  async function addService(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newService.trim();
+    if (!name) return;
+    if (services.some((s) => s.toLowerCase() === name.toLowerCase())) {
+      toast.error("Ese servicio ya existe");
+      return;
+    }
+    const { error } = await supabase.from("expense_categories").insert({
+      wedding_id: wedding.id,
+      user_id: userId,
+      name,
+      sort_order: categories.length + 1,
+    });
+    if (error) {
+      toast.error("No se ha podido crear el servicio");
+      return;
+    }
+    setNewService("");
+    setForm({ ...form, service: name });
+    await reload();
+  }
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
     const { error } = await supabase.from("vendors").insert({
       name: form.name,
-      service: form.service,
+      service,
       contact: form.contact,
-      price: Number(form.price) || 0,
+      website: form.website.trim(),
+      price: Number(form.price.replace(",", ".")) || 0,
+      deposit_paid: Number(form.deposit_paid.replace(",", ".")) || 0,
+      status: form.status,
+      contract_signed: form.contract_signed,
+      notes: form.notes.trim(),
       wedding_id: wedding.id,
       user_id: userId,
     });
@@ -956,26 +1021,57 @@ function Proveedores({
       toast.error("No se ha podido guardar");
       return;
     }
-    setForm({ name: "", service: "Catering", contact: "", price: "" });
+    setForm({
+      name: "",
+      service,
+      contact: "",
+      website: "",
+      price: "",
+      deposit_paid: "",
+      status: "por contactar",
+      contract_signed: false,
+      notes: "",
+    });
     await reload();
   }
+
+  async function update(id: string, patch: Record<string, unknown>) {
+    const { error } = await supabase.from("vendors").update(patch).eq("id", id);
+    if (error) {
+      toast.error("No se ha podido guardar");
+      return;
+    }
+    await reload();
+  }
+
+  const statusData = VENDOR_STATUS.map((s) => ({
+    name: VENDOR_STATUS_LABEL[s]!,
+    value: vendors.filter((v) => v.status === s).length,
+    key: s,
+  }));
 
   return (
     <div>
       <SectionHeader title="Proveedores" subtitle="Contactos, precios y en qué punto está cada uno." />
-      <form onSubmit={add} className="mb-8 flex flex-wrap gap-3">
+
+      <form onSubmit={add} className="mb-4 grid gap-3 rounded-2xl bg-panel p-5 sm:grid-cols-2 lg:grid-cols-3">
         <input
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           placeholder="Nombre"
-          className={`${inputClass} flex-1 min-w-[180px]`}
-        />
-        <input
-          value={form.service}
-          onChange={(e) => setForm({ ...form, service: e.target.value })}
-          placeholder="Servicio"
           className={inputClass}
         />
+        <select
+          value={service}
+          onChange={(e) => setForm({ ...form, service: e.target.value })}
+          className={inputClass}
+        >
+          {services.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
         <input
           value={form.contact}
           onChange={(e) => setForm({ ...form, contact: e.target.value })}
@@ -983,59 +1079,197 @@ function Proveedores({
           className={inputClass}
         />
         <input
+          value={form.website}
+          onChange={(e) => setForm({ ...form, website: e.target.value })}
+          placeholder="Web o Instagram"
+          className={inputClass}
+        />
+        <input
           value={form.price}
           onChange={(e) => setForm({ ...form, price: e.target.value })}
-          placeholder="Precio €"
+          placeholder="Precio total €"
           inputMode="decimal"
-          className={`${inputClass} w-32`}
+          className={inputClass}
+        />
+        <input
+          value={form.deposit_paid}
+          onChange={(e) => setForm({ ...form, deposit_paid: e.target.value })}
+          placeholder="Señal pagada €"
+          inputMode="decimal"
+          className={inputClass}
+        />
+        <select
+          value={form.status}
+          onChange={(e) => setForm({ ...form, status: e.target.value })}
+          className={inputClass}
+        >
+          {VENDOR_STATUS.map((s) => (
+            <option key={s} value={s}>
+              {VENDOR_STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={form.contract_signed}
+            onChange={(e) => setForm({ ...form, contract_signed: e.target.checked })}
+            className="size-4 accent-[var(--color-clay)]"
+          />
+          Contrato firmado
+        </label>
+        <input
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          placeholder="Notas"
+          className={`${inputClass} sm:col-span-2`}
         />
         <button className="rounded-full bg-clay px-5 py-2 text-sm font-medium text-background hover:bg-foreground">
-          Añadir
+          Añadir proveedor
+        </button>
+      </form>
+
+      <form onSubmit={addService} className="mb-8 flex flex-wrap gap-3">
+        <input
+          value={newService}
+          onChange={(e) => setNewService(e.target.value)}
+          placeholder="Nuevo servicio"
+          className={`${inputClass} min-w-[220px]`}
+        />
+        <button className="rounded-full border border-line px-5 py-2 text-sm font-medium hover:border-clay">
+          Añadir servicio
         </button>
       </form>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {vendors.map((v) => (
-          <div key={v.id} className="rounded-2xl bg-panel p-5 ring-1 ring-foreground/5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-display text-xl font-semibold">{v.name}</div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-clay">{v.service}</div>
+        {vendors.map((v) => {
+          const pending = Number(v.price) - Number(v.deposit_paid);
+          return (
+            <div key={v.id} className="rounded-2xl bg-panel p-5 ring-1 ring-foreground/5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-display text-xl font-semibold">{v.name}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-clay">{v.service}</div>
+                </div>
+                <div className="font-display text-lg">{euro(Number(v.price))}</div>
               </div>
-              <div className="font-display text-lg">{euro(Number(v.price))}</div>
-            </div>
-            {v.contact && <div className="mt-3 text-sm text-muted-foreground">{v.contact}</div>}
-            <div className="mt-4 flex items-center gap-3">
-              <select
-                value={v.status}
-                onChange={async (e) => {
-                  await supabase.from("vendors").update({ status: e.target.value }).eq("id", v.id);
-                  await reload();
+              {v.contact && <div className="mt-3 text-sm text-muted-foreground">{v.contact}</div>}
+              {v.website && (
+                <div className="mt-1 truncate text-sm text-muted-foreground">{v.website}</div>
+              )}
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                    Señal pagada
+                  </span>
+                  <input
+                    defaultValue={String(Number(v.deposit_paid))}
+                    inputMode="decimal"
+                    onBlur={async (e) => {
+                      const n = Number(e.target.value.replace(",", ".")) || 0;
+                      if (n !== Number(v.deposit_paid)) await update(v.id, { deposit_paid: n });
+                    }}
+                    className="rounded-md border border-line bg-background px-2 py-1 text-sm outline-none focus:border-clay"
+                  />
+                </label>
+                <div className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                    Saldo pendiente
+                  </span>
+                  <span className={`py-1 ${pending > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {euro(pending)}
+                  </span>
+                </div>
+              </div>
+
+              <input
+                defaultValue={v.notes ?? ""}
+                placeholder="Notas"
+                onBlur={async (e) => {
+                  const next = e.target.value;
+                  if (next !== (v.notes ?? "")) await update(v.id, { notes: next });
                 }}
-                className="rounded-lg border border-line bg-background px-2 py-1 text-xs"
-              >
-                {VENDOR_STATUS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={async () => {
-                  await supabase.from("vendors").delete().eq("id", v.id);
-                  await reload();
-                }}
-                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-              >
-                Borrar
-              </button>
+                className="mt-3 w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground/60 hover:border-line focus:border-clay focus:bg-background"
+              />
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <select
+                  value={v.status}
+                  onChange={(e) => update(v.id, { status: e.target.value })}
+                  className="rounded-lg border border-line bg-background px-2 py-1 text-xs"
+                >
+                  {VENDOR_STATUS.map((s) => (
+                    <option key={s} value={s}>
+                      {VENDOR_STATUS_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={v.contract_signed}
+                    onChange={(e) => update(v.id, { contract_signed: e.target.checked })}
+                    className="size-4 accent-[var(--color-clay)]"
+                  />
+                  Contrato firmado
+                </label>
+                <button
+                  onClick={async () => {
+                    await supabase.from("vendors").delete().eq("id", v.id);
+                    await reload();
+                  }}
+                  className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Borrar
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {vendors.length === 0 && (
           <p className="text-sm text-muted-foreground">Aún no hay proveedores guardados.</p>
         )}
       </div>
+
+      {vendors.length > 0 && (
+        <section className="mt-10 rounded-2xl bg-panel p-6 ring-1 ring-foreground/5">
+          <h2 className="font-display text-xl font-semibold">Proveedores por estado</h2>
+          <div className="mt-4" style={{ height: Math.max(240, statusData.length * 48) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={statusData} layout="vertical" margin={{ left: 10, right: 16 }}>
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  tick={{ fontSize: 11 }}
+                  stroke="var(--color-muted-foreground)"
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={120}
+                  tick={{ fontSize: 11 }}
+                  stroke="var(--color-muted-foreground)"
+                />
+                <Tooltip
+                  cursor={{ fill: "var(--color-clay-soft)" }}
+                  contentStyle={{
+                    background: "var(--color-background)",
+                    border: "1px solid var(--color-line)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="value" name="Proveedores" radius={[0, 6, 6, 0]}>
+                  {statusData.map((d) => (
+                    <Cell key={d.key} fill={VENDOR_STATUS_COLORS[d.key]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
